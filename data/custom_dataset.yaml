@@ -1,0 +1,12 @@
+# YOLOv5 🚀 by Ultralytics, GPL-3.0 license
+
+# Train/val/test sets as 1) dir: path/to/imgs, 2) file: path/to/imgs.txt, or 3) list: [path/to/imgs1, path/to/imgs2, ..]
+#path: [/Users/david/Desktop/Computer Vision Project/Output_Scene/train_test_split] # dataset root dir
+train: ../train_dataset/images/train/  # train images (relative to 'path')
+val: ../train_dataset/images/validate/  # val images (relative to 'path')
+#test: [] # test images (optional)
+
+# Classes
+nc: 2  # number of classes, for noise dataset it's 5, for pupil it's 1
+names: ['LH_tool',
+'RH_tool']  # class names, from the classes txt file (should be in the same order!)

@@ -1,0 +1,3 @@
+The task_type file should contain the main tasks to be trained on/performed in the application.
+
+**Each task is to be entered on a new line without spaces
