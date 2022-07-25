@@ -44,7 +44,7 @@ x, y, im0 = 0, 0, 0
 path_length = 0
 tracker_path_threshold = 20  # 10 20
 tracker_tooltip_threshold = 100  # 10 300
-tracker_end_point_threshold = 3  # 3 300
+tracker_end_point_threshold = 8  # 8 is min. 300
 poi = []
 tool_tip = []
 tracker = []
@@ -85,6 +85,7 @@ pts = app.predefined_training_path_coordinates
 # 307), (35, 335), (36, 361), (25, 379), (21, 406), (55, 440)]
 
 img_poly = np.zeros(shape=[480, 640, 3], dtype=np.uint8)
+# img_poly = np.zeros(shape=[960, 1280, 3], dtype=np.uint8)
 
 
 # Draw path with mouse
@@ -446,10 +447,10 @@ def reset_tracker(frame):
     print("Tracker reset successfully")
 
 
-# Function to run a function on a timer
+# Function to run a timed function
 def reset_tracker_on_timer(secs, tracker_frame):
     global is_tracker_resetting
-    timer_start_time = threading.Timer(secs, lambda: reset_tracker(tracker_frame))
+    timer_start_time = threading.Timer(secs, lambda: reset_tracker(tracker_frame))      # reset tracker after some secs
     timer_start_time.start()
     is_tracker_resetting = True
     print("Tracker initiating reset...")
@@ -462,7 +463,6 @@ def display_current_task_iteration_no(frame, frame_height, current_iteration, no
     text_y_pos = int(0.03 * frame_height)  # defining a y position for our text
     cv2.putText(frame, 'Current task ' + str(current_iteration + 1) + ' of ' + str(no_of_iterations),
                 (0, text_y_pos), font, 1, (255, 255, 255, 0.5), 3, cv2.LINE_4)
-
 
 # Write some text on screen
 def write_some_text(frame, frame_width, frame_height, text):
@@ -536,35 +536,42 @@ def stop_timer():
 # Function to calculate Total Distance Traversed
 def get_total_distance_traversed():
     # Calculate TOTAL DISTANCE TRAVELLED
-    global distance_travelled
+    global distance_travelled, points_traversed
+    distance_travelled = 0      # rest global distance travelled value
     for n in range(len(points_traversed)):
         if n < len(points_traversed) - 1:
             distance_travelled += distance.euclidean(points_traversed[n], points_traversed[n + 1])
+            print("distance_travelled +=: ", str(distance_travelled))
 
     print("TOTAL DISTANCE TRAVERSED =   ", distance_travelled)
+    print("Total length of points traversed array: ", str(len(points_traversed)))
+    del points_traversed[:]       # Reset array after each training iteration
+    print("Total length of points traversed array after Del: ", str(len(points_traversed)))
     return distance_travelled
 
 
 # Function to Round list items
-def round_list_items(list, val):
-    results = [round(curr_item, val) for curr_item in list]
+def round_list_items(n_list, val):
+    results = [round(curr_item, val) for curr_item in n_list]
     return results
 
 
-# Function to end program by changing some bool values
-def end_program():
-    global is_task_complete, is_start_path_tracking, is_tracker_start
+# Function to end program and keep results temporarily
+def end_program(pixel_cm_ratio):
+    global is_task_complete, is_start_path_tracking, is_tracker_start, overall_deviation
     is_task_complete = True
     is_start_path_tracking = False
     is_tracker_start = False
     stop_timer()  # Record time taken to complete task
     get_total_distance_traversed()  # Distance traveled by tracker
     print("Total distance deviated from ideal path => ", overall_deviation)
+    print("Pixel ratio => ", pixel_cm_ratio)
 
-    # Save results in file
+    # Prepare results for subsequent file storage
     results = round_list_items(
-        [elapsed_time, distance_travelled, overall_deviation, app.selected_predefined_training_path],
-        1)  # 'duration', 'distance_traversed', 'deviation'
+        [elapsed_time, distance_travelled, overall_deviation, app.selected_predefined_training_path, pixel_cm_ratio],
+        1)  # 'duration', 'distance_traversed', 'deviation', 'training_path', (round val)
+    overall_deviation = 0  # reset global deviation val
     app.append_results(results)  # Temp store results in a list
 
 

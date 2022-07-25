@@ -33,14 +33,18 @@ from utils.general import (LOGGER, check_file, check_img_size, check_imshow, che
 from utils.plots import Annotator, colors, save_one_box
 from utils.torch_utils import select_device, time_sync
 from timeit import default_timer
+import asyncio
 from tasks import path_tracking as pk
 from gui import app
+from gui import detect_marker
 
 # Custom variables
 no_of_task_repeats = app.repeat_task_value  # How many times to repeat the task in a session
 current_task_iteration = 0
 video_source = 0        # Indicate which source of video feed
 is_screen_recording_started = False
+pixel_cm_ratio = 0
+is_pixel_cm_val_retrieved = False
 
 FILE = Path(__file__).resolve()
 ROOT = FILE.parents[0]  # YOLOv5 root directory
@@ -83,7 +87,7 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
         ):
     # Set Custom variables to Global global is_start_path_tracking, im0, is_task_complete, distance_travelled,
     # overall_deviation, x, y, poi, is_tracker_start, tooltip_dist, last_tracker_position, points_traversed
-    global video_source
+    global video_source, pixel_cm_ratio, is_pixel_cm_val_retrieved
 
     source = str(source)
     video_source = source       # assign source of video feed to global custom variable
@@ -110,7 +114,7 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
     if pt:
         model.model.half() if half else model.model.float()
 
-    # Dataloader
+    # Data-loader
     if webcam:
         view_img = check_imshow()
         cudnn.benchmark = True  # set True to speed up constant image size inference
@@ -126,6 +130,21 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
         model(torch.zeros(1, 3, *imgsz).to(device).type_as(next(model.model.parameters())))  # warmup
     dt, seen = [0.0, 0.0, 0.0], 0
 
+    # Create an async video writer func to call a method from another file
+    async def run_async_video_writer():
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(app.write_to_video(video_source, './videos/recorded_tasks'))
+        loop.close()
+        # async_func = loop.create_task(app.write_to_video(video_source, './videos/recorded_tasks'))
+        # app.write_to_video(video_source, './videos/recorded_tasks')
+
+    # --------------------- Check Pixel-To-CM Ratio ----------------------
+    if not is_pixel_cm_val_retrieved:   # run function once
+        pixel_cm_ratio = detect_marker.detect_marker_in_background(
+            "gui/detect_red3.MOV")  # default input=source as the same for main task
+        is_pixel_cm_val_retrieved = True
+        print("Pixel val retrieved ")
+
     # Set Custom variables to Global
     global is_screen_recording_started
     # ****************************************************************************************
@@ -139,6 +158,8 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
             im = im[None]  # expand for batch dim
         t2 = time_sync()
         dt[0] += t2 - t1
+
+        # SOme random loop count test. Not necessary for program running
 
         # Inference
         visualize = increment_path(save_dir / Path(path).stem, mkdir=True) if visualize else False
@@ -155,6 +176,7 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
 
         # Start time check for Loop
         start = default_timer()
+
         # Process predictions
         for i, det in enumerate(pred):  # per image
             seen += 1
@@ -176,6 +198,10 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
             # ************** Write Current Task Iteration No. text on Screen **************
             pk.display_current_task_iteration_no(im0, h, current_task_iteration, no_of_task_repeats)
             # ------------------------------------------------
+
+            # ----------------------- Calculate Frames Per Sec (FPS) of video file ----------------------------
+            app.get_frames_per_sec(video_source)
+
 
             if not pk.is_start_path_tracking:
                 # ************** Write 'Start HERE' text on Screen **************
@@ -258,7 +284,7 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
                                     pk.start_timer()
                                     # Start Recording Screen
                                     if not is_screen_recording_started:
-                                        app. write_to_video(video_source, './videos/recorded_tasks')
+                                        # asyncio.run(run_async_video_writer())    # run asynchronously
                                         is_screen_recording_started = True
                                     pk.is_start_path_tracking = True
 
@@ -285,23 +311,24 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
                                     # End Program and Display Results
                                     if distance.euclidean(pk.tracker, pk.pts[-1]) < pk.tracker_end_point_threshold:
                                         print("Tracker reached end of path")
-                                        pk.end_program()  # End Task Training Program
+                                        print("Pixel cm value in Detect file is ", pixel_cm_ratio)
+                                        pk.end_program(pixel_cm_ratio)  # ******************** End Task Training Program ************ 58.5872431945801
+                                        # ...and dispatch pixel_cm_ratio val for storage
                                         # ********************* SAVE results to file if all iterations complete *******
                                         if no_of_task_repeats - current_task_iteration == 1:
                                             pk.save_results()
-                                            print('Results saved to file')
+                                            print('All Iteration Results saved to file')
                                         print('Program ended normally')
                                         is_screen_recording_started = False     # Screen recording ended
                                         return
-                            else:
+                            else:   # if task started BUT DEVIATED
                                 # When tracker deviates from path no matter where tooltip is
-                                if pk.check_tracker_distance(pk.tracker) > pk.tracker_path_threshold:
+                                if pk.check_tracker_distance(pk.tracker) >= pk.tracker_path_threshold:
                                     print("DEVIATION!!!!!!!!")
                                     # Keep tracker motionless while off-path
                                     print("Tracker MOTIONLESS")
-                                    pk.draw_tracker(im0, pk.tracker[0], pk.tracker[1], original_width=w,
-                                                    original_height=h)
-                                    # Reset Tracker if NOT being reset
+                                    pk.draw_tracker(im0, pk.tracker[0], pk.tracker[1], original_width=w, original_height=h)
+                                    # Reset Tracker to last optimal point on ideal path
                                     if not pk.is_tracker_resetting:
                                         # pk.write_some_text(im0, w, h, "You moved away from path. Please wait...")
                                         pk.center_text(im0, "You moved away from path. Please wait...")
@@ -334,9 +361,9 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
             im0 = annotator.result()
         except:
             pass
-        # if view_img:
+        # if view_img:        # Worked well while commented out. Uncommneted it out for just testing
         im0 = cv2.resize(im0, (640, 480))
-        cv2.imshow(str(p), im0)
+        cv2.imshow(str(p), im0)     # display main task training window
 
         # Start Measure performance
         if cv2.waitKey(1) & 0xFF == 32:  # if space pressed
@@ -348,7 +375,7 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
         # end_program()
         if cv2.waitKey(1) & 0xFF == ord('q'):
             # pk.stop_timer()
-            pk.end_program()
+            pk.end_program(pixel_cm_ratio)
             break
         if cv2.getWindowProperty(str(p), cv2.WND_PROP_VISIBLE) < 1:
             print("Window closed from x button")
@@ -366,7 +393,7 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
     # Get Performance Time
     if pk.is_timer_started:  # if timer still running for some reason
         print("Timer was still running")
-        pk.end_program()
+        pk.end_program(pixel_cm_ratio)
     print("Time taken to complete task ==> ", pk.elapsed_time, "s")
 
 def parse_opt():

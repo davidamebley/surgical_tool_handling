@@ -1,0 +1,15 @@
+#This Path Tracking task is meant to improve the surgical instrument handling skills of users.
+
+In this task, the goal is for users to move a target object (a circle) from a starting point to an end destination. Both starting and end points are indicated in different colours to assist users in performing the task with ease.
+
+##How to Perform the Task
+At the moment, the user is allowed to use one micro-surgical instrument at a time. When the task is presented before them, they must move the instrument to the training field where the camera can capture it for the program to detect its tip. 
+
+They have the chance to re-adjust the grasp of the instrument if they find it uncomfortable. However, the program begins recording the user's performance as soon as they get the tip of the instrument to touch the starting point indicated on the screen. The user then must move the target circle from the starting point along the path to the end point. Performance is measured based on the following metrics: 
+1. time taken to complete the task, 
+2. deviation from the optimal path during movement of the surgical instrument, and 
+3. the distance traversed.
+
+During movement, if the tool moves away from the optimal path, the target circle temporarily gets disabled from being moved. The program records the last optimal point of the target circle on the path and re-adjusts the circle to that location automatically after some pre-set seconds before the user can proceed moving it. Depending on the number of times they chose to repeat the task, the program may end or restart the training when the user gets the target circle to the end point successfully. 
+
+They can proceed to view the results of their performance when the task ends.

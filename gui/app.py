@@ -2,9 +2,12 @@
 This file contains the GUI elements of our app
 
 """
+import time
 import tkinter as tk
 from tkinter import ttk
 from tkinter import messagebox
+from tkinter.filedialog import asksaveasfile, asksaveasfilename
+from tkinter import scrolledtext
 from PIL import Image, ImageTk
 import pandas as pd
 import numpy as np
@@ -16,12 +19,16 @@ from typing import Iterable
 import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg, NavigationToolbar2Tk)
+import asyncio
+import asyncio
 
 # Custom variables
 username = ""
 selected_task = 0
 repeat_task_value = 1
-performance_results_columns = ['username', 'duration', 'distance_traversed', 'deviation', 'path_id']
+performance_results_columns = ['username', 'duration', 'distance_traversed', 'deviation', 'path_id', 'pixel_cm_ratio']
+performance_metric_list = ['Duration', 'Distance', 'Deviation']
+performance_metric_units = {'Duration': 'secs', 'Distance': 'cm', 'Deviation': 'cm'}
 predefined_path_columns = ['path_id', 'length']
 predefined_path_coordinates_columns = ['path_id', 'coord_x', 'coord_y']
 temp_results = []
@@ -33,13 +40,21 @@ returning_user = 0  # Existing user returning to system
 is_drawn_new_path = False
 results_window = 0
 is_view_results_window_open = False
+is_view_task_info_window_open = False
 current_open_results_window_list = []
+current_open_task_info_window_list = []
+
+# ROOT = 'I:\\tool_detection\\david_project\\'
+ROOT = 'C:\\Users\\Kwasi\\OneDrive - University of Eastern Finland\\Desktop\\Developer\\CV project\\tool_tracking_deliverable\\'
 
 # Read values from files
 # Task types
 available_tasks = []
 with open('./extra_files/task_type.txt') as inFile:
     available_tasks = [line for line in inFile]
+
+# Find OpenCV version
+(major_ver, minor_ver, subminor_ver) = (cv2.__version__).split('.')
 
 # Retrieve user list from file
 existing_users = []
@@ -102,8 +117,18 @@ def open_select_task_window():
     label_sub.pack(padx=5, pady=10, side=tk.TOP)
     combo_task_type.pack(padx=20, pady=10, side=tk.TOP, fill="x")
     label_info.pack(padx=20, pady=10, side=tk.TOP, fill="x")
+    label_info.bind("<Button-1>",
+                    lambda e: attempt_open_task_info(combo_task_type.current()))  # Click event
     button_cancel.pack(pady=10, side=tk.BOTTOM)
     button_continue.pack(pady=10, side=tk.BOTTOM)
+
+    # Function to display Task Info
+    def attempt_open_task_info(n_current):
+        try:
+            # users_window.destroy()
+            display_task_info(n_current)  # Open Window
+        except OSError:
+            raise FileNotFoundError("Error opening window")
 
     # Handle window close event
     task_window.protocol("WM_DELETE_WINDOW", on_closing)
@@ -389,7 +414,7 @@ def open_performance_metrics_window(user_id):
     performance_metrics_window.title("Performance Results")
 
     # specify size
-    performance_metrics_window.geometry("640x480")
+    performance_metrics_window.geometry("648x648")
 
     print("users = ", existing_users)
 
@@ -407,8 +432,8 @@ def open_performance_metrics_window(user_id):
 
     # Combobox for Path list
     combo_path_list = ttk.Combobox(performance_metrics_window, state="readonly")
-    temp_list = tuple(get_user_trained_path_list(user))
-    combo_path_list['values'] = ['Path ' + str(item) for item in temp_list]
+    path_list = tuple(get_user_trained_path_list(user))
+    combo_path_list['values'] = ['Path ' + str(item) for item in path_list]
     combo_path_list.current(0)
 
     # Bind the multiple events
@@ -428,31 +453,97 @@ def open_performance_metrics_window(user_id):
     frame_performance_metrics = tk.LabelFrame(performance_metrics_window, text="Performance Metrics", pady=40)
 
     # Create labels for Frame *TODO NOTE: These will be created dynamically later
-    label_duration = tk.Label(frame_performance_metrics, text="Duration", cursor="hand2", fg="blue",
+    label_duration = tk.Label(frame_performance_metrics, text=performance_metric_list[0], cursor="hand2", fg="blue",
                               font=("Century", 12))
-    label_duration.bind("<Button-1>", lambda e: display_results(1, performance_results_columns[1] + " (secs)",
+    # label_export_duration = tk.Label(frame_performance_metrics, text="Duration", cursor="hand2", fg="blue",
+    #                           font=("Century", 12))
+    label_duration.bind("<Button-1>", lambda e: display_results(1, performance_results_columns[1] + f" ({performance_metric_units['Duration']})",
                                                                 combo_path_list.get()))  # Click event
-    label_distance = tk.Label(frame_performance_metrics, text="Distance", cursor="hand2", fg="blue",
+    label_distance = tk.Label(frame_performance_metrics, text=performance_metric_list[1], cursor="hand2", fg="blue",
                               font=("Century", 12))
-    label_distance.bind("<Button-1>", lambda e: display_results(2, performance_results_columns[2] + " (mm)",
+    label_distance.bind("<Button-1>", lambda e: display_results(2, performance_results_columns[2] + f" ({performance_metric_units['Distance']})",
                                                                 combo_path_list.get()))  # Click event
-    label_deviation = tk.Label(frame_performance_metrics, text="Deviation", cursor="hand2", fg="blue",
+    label_deviation = tk.Label(frame_performance_metrics, text=performance_metric_list[2], cursor="hand2", fg="blue",
                                font=("Century", 12))
-    label_deviation.bind("<Button-1>", lambda e: display_results(3, performance_results_columns[3] + " (mm)",
+    label_deviation.bind("<Button-1>", lambda e: display_results(3, performance_results_columns[3] + f" ({performance_metric_units['Deviation']})",
                                                                  combo_path_list.get()))  # Click event
+
+    # Create Export Result frame
+    frame_export_result = tk.LabelFrame(performance_metrics_window, text="Export Results", pady=10)
+
+    # Combobox for Export list
+    combo_export_list = ttk.Combobox(performance_metrics_window, state="readonly")
+    combo_export_list['values'] = [item for item in performance_metric_list]
+    combo_export_list.current(0)
+
+    # Bind the multiple events
+    # for cb in [combo_export_list]:
+    #     cb.bind("<<ComboboxSelected>>", lambda e: set_selected_user_index(combo_export_list.current()))
+    #     cb.bind("<Return>", lambda e: set_selected_user_index(combo_export_list.current()))
+
+    # Function to initiate Export result process
+    def dispatch_export_result():
+        print("Hi, export")
+        new_result = 0
+        selected_metric = str(combo_export_list.get())
+        if selected_metric.casefold() == "duration".casefold():  # caseless comparison
+            new_result = get_performance_results(1, combo_path_list.get()), f"duration ({performance_metric_units['Duration']})"  # index for which metric, then selected path
+        elif selected_metric.casefold() == "distance".casefold():
+            new_result = get_performance_results(2, combo_path_list.get()), f"distance ({performance_metric_units['Distance']})"
+        elif selected_metric.casefold() == "deviation".casefold():
+            new_result = get_performance_results(3, combo_path_list.get()), f"deviation ({performance_metric_units['Deviation']})"
+        else:
+            new_result = get_performance_results(1, combo_path_list.get()), f"duration ({performance_metric_units['Duration']})"
+        print("Export ", new_result)
+        return new_result
+
+    # Function to prepare results for display
+    def get_performance_results(result_column_index, selected_path):
+        global performance_results
+        # print(f"Inside display_results function. ID of user is {returning_user}")
+        new_list = []
+        performance_results = get_performance_data(result_column_index,
+                                                   selected_path)  # index stands for which results column; 1=duration, 2=distance
+        print(f"performance_results {performance_results}")
+        for i, n_list in enumerate(performance_results):
+            print("i, list, performance_results[i]")
+            print(i, n_list, performance_results[i])
+            new_list.append(float(performance_results[i][0]))
+        return new_list
 
     # Function to display various results based on index passed
     def display_results(index, label, selected_path):
         global performance_results
-        # print(f"Inside display_results function. ID of user is {returning_user}")
-        new_list = []
-        performance_results = get_performance_data(index, selected_path)  # index stands for which results column
-        print(f"performance_results {performance_results}")
-        for i, list in enumerate(performance_results):
-            print("i, list, performance_results[i]")
-            print(i, list, performance_results[i])
-            new_list.append(float(performance_results[i][0]))
+        new_list = get_performance_results(index, selected_path)
         view_results_window(new_list, label, selected_path)
+
+    # Function to initiate eport for subsequent storage
+    def initiate_export_result():
+        raw_export_data = dispatch_export_result()
+        label = raw_export_data[1]
+        export_data = raw_export_data[0]
+        columns = [label]
+        # flatten_results = flatten_some_list(temp_results)
+        dt_frame = pd.DataFrame(export_data)
+        dt_frame.index += 1
+        # -----------------------
+        curr_user = get_username()
+        curr_task = get_selected_task()
+        curr_path = combo_path_list.get()
+
+        file_types = [('All files','*.*'), ('Comma-separated value files(.csv)', '*.csv')]
+        file = asksaveasfilename(initialfile=f'{curr_user}_{curr_task}_{curr_path}_{label}', defaultextension='.csv', filetypes=file_types)
+        if file is None or file == '':    # Handle error that appears when cancel without save
+            return
+        # save ------------------------------ save
+        try:
+            with open(file, 'w', newline='') as f:
+                print("New file created")
+                dt_frame.to_csv(f, header=columns, index=True, mode='w', index_label='training_task')
+        except FileNotFoundError:
+            raise ('Error writing to file')
+        show_info_messagebox("File saved successfully in the last directory selected")
+
 
     # Close View_Results_window
     def prepare_to_close_view_results():
@@ -460,6 +551,10 @@ def open_performance_metrics_window(user_id):
         if is_view_results_window_open:
             [window.destroy() for window in current_open_results_window_list]
             is_view_results_window_open = False
+
+    # Create Export Button
+    button_export = tk.Button(performance_metrics_window, text="Export Result", fg="white", bg="gray",
+                              command=initiate_export_result)
 
     # Create Cancel button
     button_cancel = tk.Button(performance_metrics_window, text="Cancel", bg="gray",
@@ -473,12 +568,15 @@ def open_performance_metrics_window(user_id):
     label_sub.pack(padx=5, pady=10, side=tk.TOP)
     # label_sub2.pack(padx=5, pady=10, side=tk.TOP)
     combo_path_list.pack(padx=20, pady=10, side=tk.TOP, fill="x")
-    # ****** METRICS Labels ******
+    # ****** METRICS objects ******
     label_duration.pack(padx=100, pady=10, side=tk.TOP)
     label_distance.pack(padx=0, pady=10, side=tk.TOP)
     label_deviation.pack(padx=0, pady=10, side=tk.TOP)
+    combo_export_list.pack(in_=frame_export_result, side=tk.LEFT, padx=20)
+    button_export.pack(in_=frame_export_result, side=tk.LEFT, padx=20)
     # **************
-    frame_performance_metrics.pack(padx=5, pady=10, side=tk.TOP, fill="x", expand="yes")
+    frame_performance_metrics.pack(padx=5, pady=10, side=tk.TOP, fill="x", expand=True)
+    frame_export_result.pack(in_=frame_performance_metrics, padx=5, pady=10, side=tk.BOTTOM, expand=True)
     button_cancel.pack(pady=10, side=tk.TOP)
     button_exit.pack(pady=10, side=tk.BOTTOM)
 
@@ -772,11 +870,11 @@ def view_results_window(result_list, label, selected_path):
     # plotting the graph
     graph_fig.plot(x, y, marker="o")
     # plot1.legend()
-    graph_fig.set_xlabel("No. of times trained")
+    graph_fig.set_xlabel("Training task")
     graph_fig.set_ylabel(label)
 
     # df2.plot(kind='line', legend=True, ax=ax2, color='b', marker='o', fontsize=10)
-    graph_fig.set_title(f"User: [{username}] \n{label} for {selected_path}")
+    graph_fig.set_title(f"User: {username} \n{label} for {selected_path}")
 
     print(result_list)
 
@@ -874,6 +972,62 @@ def view_all_results_window(result_list, users_found, label, selected_path, grap
     results_window.mainloop()
 
 
+# Close View Task Info Window
+def prepare_to_close_view_task_info():
+    global is_view_task_info_window_open
+    if is_view_task_info_window_open:
+        [window.destroy() for window in current_open_task_info_window_list]
+        is_view_task_info_window_open = False
+
+
+# Function to read task info
+def view_task_info_window(task_name):
+    tasks_root_dir = '../extra_files/task_info/'
+    file_path = ''
+    # Check which task selected
+    if task_name == 'Path tracking':
+        file_path = 'path_tracking.txt'
+    #     Add more logic later based on task additions
+
+    # Create widget
+    global is_view_task_info_window_open, current_open_task_info_window_list
+    is_view_task_info_window_open = True
+    task_info_window = tk.Toplevel(root)
+
+    # Define title for window
+    task_info_window.title("Task Info")
+
+    # specify size
+    task_info_window.geometry("600x500")
+
+    # Position window relative to root
+    win_x = root.winfo_x()
+    win_y = root.winfo_y()
+    task_info_window.geometry("+%d+%d" % (win_x + 200, win_y + 200))
+
+    # Place window at the top
+    task_info_window.wm_transient(root)
+
+    # ******************** Data Stuff *************************
+    text_content = 'Sorry, nothing to display for now'
+    try:
+        with open(tasks_root_dir + file_path) as f:
+            text_content = f.read()
+            print(text_content)
+    except OSError:
+        raise FileNotFoundError("Error reading file")
+
+    # Add a label To display Text
+    label = tk.Label(task_info_window, text=text_content, font=('Aerial', 17))
+    label.pack()
+
+    # Add this open window to a list
+    current_open_task_info_window_list.append(task_info_window)
+
+    # Display until closed manually
+    task_info_window.mainloop()
+
+
 # Function to view Selected Predefined Training Path
 def preview_selected_predefined_path():
     pts = get_path_coordinates()
@@ -889,23 +1043,44 @@ def preview_selected_predefined_path():
     cv2.waitKey()
 
 
-# Function to display more info of selected task
-def display_task_info():
+# Function to display more info of selected task. THIS IS AN ALTERNATIVE TO FUNC (View Task Info WIndow)
+def display_task_info(task_name):
+    tasks_root_dir = 'extra_files\\task_info\\'
+    file_path = ''
+    # Check which task selected
+    if task_name == 'Path tracking':
+        file_path = 'path_tracking.txt'
+    #     Add more logic later based on task additions
+
+    # Create widget
+    global is_view_task_info_window_open, current_open_task_info_window_list
+    is_view_task_info_window_open = True
     # Create widget
     info_window = tk.Toplevel()
 
     # define title for window
-    info_window.title("Info")
+    info_window.title("Task Info")
 
     # specify size
     info_window.geometry("480x320")
+
+    # ******************** Data Stuff *************************
+    text_content = 'Sorry, nothing to display for now'
+    try:
+        assert os.path.isfile(ROOT + 'extra_files\\task_info\\path_tracking.txt')
+        with open(ROOT + 'extra_files\\task_info\\path_tracking.txt', "r") as f:
+            text_content = f.read()
+            print(text_content)
+    except OSError:
+        raise FileNotFoundError("Error reading file")
 
     # Create label
     label_main = tk.Label(info_window, text=get_selected_task())
 
     # Where to display text
-    label_text = ScrolledText(main, bg='white', fg='blue', relief=GROOVE, height=600, font='TkFixedFont', wrap='word')
-    label_text.insert(tk.END, info_text)
+    label_text = scrolledtext.ScrolledText(info_window, bg='white', fg='blue', relief=tk.GROOVE, height=600,
+                                           font='TkFixedFont', wrap='word')
+    label_text.insert(tk.END, text_content)
 
     # Okay button
     button_okay = tk.Button(info_window, text="Continue", command=info_window.destroy)
@@ -913,6 +1088,9 @@ def display_task_info():
     label_main.pack()
     label_text.pack()
     button_okay.pack()
+
+    # Add this open window to a list
+    current_open_task_info_window_list.append(info_window)
 
     # Display until closed manually.
     info_window.mainloop()
@@ -929,15 +1107,22 @@ def convert_performance_index(index):
 def get_performance_data(performance_index, selected_path):
     results = []
     n_path = selected_path.split()[-1]  # Extract the number part of the string
-    performance_metric = convert_performance_index(performance_index)
+    performance_metric = convert_performance_index(performance_index)  # get the str equivalence of metric
     performance_data = get_performance_results_csv()
+    pixel_cm_ratio = 0
     # print(f"Inside get_performance_data function. ID of user is {returning_user}")
     print(f"Inside get_performance_data function. Path ID is {n_path}")
     for row in performance_data.itertuples(index=False):
         if row.username == get_selected_returning_user(returning_user):  # get results based on which user
-            if row.path_id == n_path:  # get specific path results
+            if row.path_id == n_path:  # get values based on path id
                 # is_user_present = True
-                result = [getattr(row, performance_metric)]
+                pixel_cm_ratio = row.pixel_cm_ratio
+                result = 0
+                if performance_index == 2 or performance_index == 3:
+                    result = [float(getattr(row, performance_metric)) / float(
+                        pixel_cm_ratio)]  # do pixel-cm-ratio conv. here for graph
+                else:
+                    result = [getattr(row, performance_metric)]  # return raw results in time/secs value
                 results.append(result)
     return results
 
@@ -1154,7 +1339,7 @@ def is_username_exists(n_user):
 def append_results(results):
     global temp_results
     user_name = [get_username()]
-    results = user_name + list(results)  # append username to results in a new list
+    results = user_name + list(results)  # prepend username to results in a new list
     flatten_results = flatten_some_list(results)
     temp_results.append(flatten_results)
 
@@ -1173,18 +1358,42 @@ def save_results():
                 # print("FINAL", flatten_results)
 
         else:
+            with open(file_name, 'a', newline='') as f:  # if previous file exists
+                dt_frame.to_csv(f, header=(f.tell() == 0), index=False, mode='a')
+                print("Data saved successfully")
+                # print("FINAL", flatten_results)
+    except FileNotFoundError:
+        print('Error writing to file')
+    print('Saved results: ', temp_results)
+
+
+# Function to export individual results to file upon request
+def export_individual_results():
+    columns = performance_results_columns
+    # flatten_results = flatten_some_list(temp_results)
+    dt_frame = pd.DataFrame(temp_results)
+    file_name = './extra_files/results.csv'
+    try:
+        if not os.path.isfile(file_name):
+            with open(file_name, 'a', newline='') as f:
+                print("New file created")
+                dt_frame.to_csv(f, header=columns, index=False, mode='a')
+                # print("FINAL", flatten_results)
+
+        else:
             with open(file_name, 'a', newline='') as f:
                 dt_frame.to_csv(f, header=(f.tell() == 0), index=False, mode='a')
                 print("Data saved successfully")
                 # print("FINAL", flatten_results)
     except FileNotFoundError:
         print('Error writing to file')
-    print(temp_results)
+    print('Saved results: ', temp_results)
 
 
 # Function to record screen
-def write_to_video(src, output_path):
+async def write_to_video(src, output_path):
     # cap = cv2.VideoCapture(0)     0 for webcam input
+    print("Async video writer called")
     video_source = src  # 0 for webcam, "../path.extension" for vid files
     current_user = username
     task_selected = get_selected_task()  # which training task
@@ -1193,6 +1402,8 @@ def write_to_video(src, output_path):
     vid_output_path = output_path
     current_year_month = current_datetime.strftime("%Y%m")
     cap = cv2.VideoCapture(video_source)  # "../extracted.mp4"
+    cap.set(3, 640)
+    cap.set(4, 480)
     # Set Dimensions for output video
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
@@ -1208,31 +1419,89 @@ def write_to_video(src, output_path):
     # Define the codec and create VideoWriter object
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
     out = cv2.VideoWriter(save_dir + '/' + current_user + '_' + task_selected + '_' + current_dt + '.mp4', fourcc, 20,
-                          (width, height), True)
+                          (640, 480), True)
+    # out = cv2.VideoWriter('test.mp4', fourcc, 20,
+    #                       (640, 480), True)
 
     while cap.isOpened():
+        print("Writing to video...")
         ret, frame = cap.read()
         if ret:
             frame = cv2.flip(frame, 0)
             # write the flipped frame
             out.write(frame)
             # cv2.imshow('frame', frame)
+            print("Writing to /recording video")
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
         else:
             print('Stream disconnected')
             print(current_datetime.strftime("%Y:%m:%d %H:%M:%S"))
             break
+
+    # while cap.isOpened():
+    # ret, frame = cap.read()
+    # if ret:
+    #     frame = cv2.flip(frame, 0)
+    #     # write the flipped frame
+    #     out.write(frame)
+    #     # cv2.imshow('frame', frame)
+    #     print("Writing to /recording video")
+    #     # if cv2.waitKey(1) & 0xFF == ord('q'):
+    #     #     break
+    # else:
+    #     print('Stream disconnected')
+    #     print(current_datetime.strftime("%Y:%m:%d %H:%M:%S"))
+    #     # break
+    #     cap.release()
+    #     out.release()
+
     # Release everything if job is finished
     cap.release()
     out.release()
+
     # cv2.destroyAllWindows()
 
 
+# Function to Calculate Frames Per Sec
+def get_frames_per_sec(src):
+    # Create video capture object
+    video_source = src
+    cap = cv2.VideoCapture(video_source)
+
+    if video_source == 0 or video_source == "0":  # if webcam
+        # Number of frames to capture. An optimal val for calculation
+        num_frames = 120  # Capturing 120 frames
+
+        # Start time
+        start = time.time()
+
+        # Grab a few frames
+        for i in range(0, num_frames):
+            ret, frame = cap.read()
+
+        # End time
+        end = time.time()
+
+        # Time elapsed
+        seconds = end - start
+        # print("Time taken : {0} seconds".format(seconds))
+        # Calculate frames per second
+        fps = num_frames / seconds
+        print("Estimated Webcam Frames Per Second : {0}".format(fps))
+    else:
+        if int(major_ver) < 3:
+            fps = cap.get(cv2.cv.CV_CAP_PROP_FPS)
+            print("Frames per second using video.get(cv2.cv.CV_CAP_PROP_FPS): {0}".format(fps))
+        else:
+            fps = cap.get(cv2.CAP_PROP_FPS)
+            print("Frames per second using video.get(cv2.CAP_PROP_FPS) : {0}".format(fps))
+
+
 # Flatten some list of list
-def flatten_some_list(list):  # converting a 2D list into a 1D list
+def flatten_some_list(n_list):  # converting a 2D list into a 1D list
     flat_list = []
-    for sublist in list:
+    for sublist in n_list:
         if isinstance(sublist, Iterable) and not isinstance(sublist, (str, bytes)):  # Check if item not string
             for item in sublist:
                 flat_list.append(item)
