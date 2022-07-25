@@ -18,7 +18,7 @@ The main training task available in the application is the Path tracking task.
 It allows the user to move an object along a path on the computer screen using any of the available surgical instruments.
 
 ## Software Tools
--Python
--YOLOv5
--Tkinter
--LabelImg
+- Python
+- YOLOv5
+- Tkinter
+- LabelImg
