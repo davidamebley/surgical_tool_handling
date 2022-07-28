@@ -195,6 +195,7 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
             annotator = Annotator(im0, line_width=line_thickness, example=str(names))
             h, w, _ = im0.shape
 
+            # ************************************ PATH TRACKING TASK HERE *********************************************
             # ************** Write Current Task Iteration No. text on Screen **************
             pk.display_current_task_iteration_no(im0, h, current_task_iteration, no_of_task_repeats)
             # ------------------------------------------------
@@ -205,11 +206,6 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
 
             if not pk.is_start_path_tracking:
                 # ************** Write 'Start HERE' text on Screen **************
-                font = cv2.FONT_HERSHEY_SIMPLEX
-                # inserting text on video frame
-                # cv2.putText(im0, 'Start HERE', ((pk.pts[0][0] * w // 640), pk.pts[0][1] * h // 480), font, 1,
-                #             (255, 255, 255),
-                #             2, cv2.LINE_4)
                 pk.display_start_here_text(im0, (pk.pts[0][0]* w // 640), (pk.pts[0][1]* h // 480))
                 # ------------------------------------------------
 
@@ -322,14 +318,27 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
                                         is_screen_recording_started = False     # Screen recording ended
                                         return
                             else:   # if task started BUT DEVIATED
-                                # When tracker deviates from path no matter where tooltip is
+                                # If tracker deviates from path no matter where tooltip is
+                                # if pk.check_tracker_distance(pk.tracker) >= pk.tracker_path_threshold:
+                                #     print("DEVIATION!!!!!!!!")
+                                #     # FREEZE tracker while off-path
+                                #     print("Tracker MOTIONLESS")
+                                #     pk.draw_tracker(im0, pk.tracker[0], pk.tracker[1], original_width=w, original_height=h)
+                                #     # Reset Tracker to last optimal point on ideal path
+                                #     if not pk.is_tracker_resetting:
+                                #         # pk.write_some_text(im0, w, h, "You moved away from path. Please wait...")
+                                #         pk.center_text(im0, "You moved away from path. Please wait...")
+                                #         pk.reset_tracker_on_timer(2, im0)  # Wait for 2 secs before execution
+                                    # ***** Tracker reset complete *****
+
                                 if pk.check_tracker_distance(pk.tracker) >= pk.tracker_path_threshold:
                                     print("DEVIATION!!!!!!!!")
-                                    # Keep tracker motionless while off-path
-                                    print("Tracker MOTIONLESS")
-                                    pk.draw_tracker(im0, pk.tracker[0], pk.tracker[1], original_width=w, original_height=h)
+                                    if pk.is_tracker_resetting:
+                                        # FREEZE tracker while off-path
+                                        print("Tracker resetting, but MOTIONLESS")
+                                        pk.draw_tracker(im0, pk.tracker[0], pk.tracker[1], original_width=w, original_height=h)
                                     # Reset Tracker to last optimal point on ideal path
-                                    if not pk.is_tracker_resetting:
+                                    else:       # if tracker not being reset = new deviation occurred
                                         # pk.write_some_text(im0, w, h, "You moved away from path. Please wait...")
                                         pk.center_text(im0, "You moved away from path. Please wait...")
                                         pk.reset_tracker_on_timer(2, im0)  # Wait for 2 secs before execution
