@@ -333,6 +333,7 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
 
                                 if pk.check_tracker_distance(pk.tracker) >= pk.tracker_path_threshold:
                                     print("DEVIATION!!!!!!!!")
+                                    pk.center_text(im0, "You moved away from path. Please wait...")
                                     if pk.is_tracker_resetting:
                                         # FREEZE tracker while off-path
                                         print("Tracker resetting, but MOTIONLESS")
@@ -340,7 +341,7 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
                                     # Reset Tracker to last optimal point on ideal path
                                     else:       # if tracker not being reset = new deviation occurred
                                         # pk.write_some_text(im0, w, h, "You moved away from path. Please wait...")
-                                        pk.center_text(im0, "You moved away from path. Please wait...")
+
                                         pk.reset_tracker_on_timer(2, im0)  # Wait for 2 secs before execution
                                     # ***** Tracker reset complete *****
 
