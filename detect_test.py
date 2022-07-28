@@ -138,10 +138,10 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
         # async_func = loop.create_task(app.write_to_video(video_source, './videos/recorded_tasks'))
         # app.write_to_video(video_source, './videos/recorded_tasks')
 
-    # --------------------- Check Pixel-To-CM Ratio ----------------------
+    # --------------------- Check Pixel-To-CM Ratio ----------------------`
     if not is_pixel_cm_val_retrieved:   # run function once
         pixel_cm_ratio = detect_marker.detect_marker_in_background(
-            "gui/detect_red3.MOV")  # default input=source as the same for main task
+            0)  # default input=source; as the same for main task ("gui/detect_red3.MOV")
         is_pixel_cm_val_retrieved = True
         print("Pixel val retrieved ")
 
@@ -341,7 +341,8 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
                                     # Reset Tracker to last optimal point on ideal path
                                     else:       # if tracker not being reset = new deviation occurred
                                         # pk.write_some_text(im0, w, h, "You moved away from path. Please wait...")
-
+                                        pk.draw_tracker(im0, pk.tracker[0], pk.tracker[1], original_width=w,
+                                                        original_height=h)      # FREEZE tracker
                                         pk.reset_tracker_on_timer(2, im0)  # Wait for 2 secs before execution
                                     # ***** Tracker reset complete *****
 
@@ -410,8 +411,8 @@ def parse_opt():
     parser = argparse.ArgumentParser()
     # parser.add_argument('--weights', nargs='+', type=str, default=ROOT / 'weights/david_best.pt', help='model path(s)')
     parser.add_argument('--weights', nargs='+', type=str, default=ROOT / 'weights/best.pt', help='model path(s)')
-    parser.add_argument('--source', type=str, default=ROOT / 'extracted.mp4', help='file/dir/URL/glob, 0 for webcam')
-    # parser.add_argument('--source', type=str, default=0, help='file/dir/URL/glob, 0 for webcam')
+    # parser.add_argument('--source', type=str, default=ROOT / 'extracted.mp4', help='file/dir/URL/glob, 0 for webcam')
+    parser.add_argument('--source', type=str, default=0, help='file/dir/URL/glob, 0 for webcam')
     parser.add_argument('--imgsz', '--img', '--img-size', nargs='+', type=int, default=[640], help='inference size h,w')
     parser.add_argument('--conf-thres', type=float, default=0.25, help='confidence threshold')
     parser.add_argument('--iou-thres', type=float, default=0.45, help='NMS IoU threshold')
