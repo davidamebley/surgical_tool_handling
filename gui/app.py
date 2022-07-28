@@ -313,7 +313,7 @@ def open_existing_users_window():
 
     # Create label
     label_main = tk.Label(users_window, text="Existing users", font=("Century", 14))
-    label_sub = tk.Label(users_window, text="Select a name from the list below and proceed with the next action",
+    label_sub = tk.Label(users_window, text="Select your username from the list below to proceed",
                          font=("Century", 12))
     label_view_results = tk.Label(users_window, text="View training results", cursor="hand2", fg="blue",
                                   font=("Century", 12, "underline"))
@@ -1487,8 +1487,8 @@ def get_frames_per_sec(src):
         seconds = end - start
         # print("Time taken : {0} seconds".format(seconds))
         # Calculate frames per second
-        fps = num_frames / seconds
-        print("Estimated Webcam Frames Per Second : {0}".format(fps))
+        # fps = num_frames / seconds
+        # print("Estimated Webcam Frames Per Second : {0}".format(fps))
     else:
         if int(major_ver) < 3:
             fps = cap.get(cv2.cv.CV_CAP_PROP_FPS)

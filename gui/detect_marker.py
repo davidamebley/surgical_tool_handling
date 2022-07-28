@@ -29,8 +29,10 @@ def detect_marker_in_background(cap):
         frame_w = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
 
         # Define Lower and Upper boundaries of color
-        lower_color = np.array([79, 64, 190], dtype="uint8")
-        upper_color = np.array([89, 72, 203], dtype="uint8")
+        # lower_color = np.array([79, 64, 190], dtype="uint8")
+        # upper_color = np.array([89, 72, 203], dtype="uint8")
+        lower_color = np.array([73, 71, 131], dtype="uint8")
+        upper_color = np.array([74, 66, 144], dtype="uint8")
         print("Marker detect on")
 
         if ret:

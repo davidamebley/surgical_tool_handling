@@ -26,7 +26,7 @@ def click_event(event, x, y, flags, params):
 
 
 # img = np.zeros((600, 600, 3), np.uint8)
-img = cv.imread('../temp_marker.png')
+img = cv.imread('../temp_marker2.png')
 print(img)
 cv.imshow('image', img)
 cv.setMouseCallback('image', click_event)
