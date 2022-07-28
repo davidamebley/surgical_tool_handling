@@ -1537,9 +1537,9 @@ def show_error_messagebox(message):
 
 # Function to disable Root widgets
 def disable_root_widgets():
-    widgets = [button_start, textbox_username, label_existing_user, label_view_all_results]
+    widgets = [button_start, textbox_username, label_existing_user]
     label_existing_user.unbind("<Button-1>")
-    label_view_all_results.unbind("<Button-1>")
+    # label_view_all_results.unbind("<Button-1>")
     for widget in widgets:
         if widget['state'] == "normal":
             widget["state"] = "disable"
@@ -1547,10 +1547,10 @@ def disable_root_widgets():
 
 # Function to disable Root widgets
 def enable_root_widgets():
-    widgets = [button_start, textbox_username, label_existing_user, label_view_all_results]
+    widgets = [button_start, textbox_username, label_existing_user]
     label_existing_user.bind("<Button-1>", lambda e: prepare_to_open_existing_users_window())  # enable click event
-    label_view_all_results.bind("<Button-1>",
-                                lambda e: prepare_to_open_all_users_performance_metrics_window())  # enable click event
+    # label_view_all_results.bind("<Button-1>",
+    #                             lambda e: prepare_to_open_all_users_performance_metrics_window())  # enable click event
     for widget in widgets:
         if widget['state'] == "disabled":
             widget["state"] = "normal"
@@ -1603,13 +1603,13 @@ textbox_username.pack(padx=20, pady=5)
 # label links
 label_existing_user = tk.Label(bottom_frame, text="Already a user? Click here to proceed", cursor="hand2", fg="blue",
                                font=("Century", 14, "underline"))
-label_view_all_results = tk.Label(bottom_frame, text="View results for all users", cursor="hand2", fg="green",
-                                  font=("Century", 11))
+# label_view_all_results = tk.Label(bottom_frame, text="View results for all users", cursor="hand2", fg="green",
+#                                   font=("Century", 11))
 label_existing_user.pack(padx=20, pady=5)
-label_view_all_results.pack(padx=20, pady=5)
+# label_view_all_results.pack(padx=20, pady=5)
 label_existing_user.bind("<Button-1>", lambda e: prepare_to_open_existing_users_window())  # Click event
-label_view_all_results.bind("<Button-1>",
-                            lambda e: prepare_to_open_all_users_performance_metrics_window())  # Click event
+# label_view_all_results.bind("<Button-1>",
+#                             lambda e: prepare_to_open_all_users_performance_metrics_window())  # Click event
 
 
 def prepare_to_open_existing_users_window():
