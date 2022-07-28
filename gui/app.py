@@ -317,9 +317,9 @@ def open_existing_users_window():
                          font=("Century", 12))
     label_view_results = tk.Label(users_window, text="View training results", cursor="hand2", fg="blue",
                                   font=("Century", 12, "underline"))
-    label_view_coordinates_traversed = tk.Label(users_window,
-                                                text="View Coordinates Traversed", cursor="hand2", fg="blue",
-                                                font=("Century", 12, "underline"))
+    # label_view_coordinates_traversed = tk.Label(users_window,
+    #                                             text="View Coordinates Traversed", cursor="hand2", fg="blue",
+    #                                             font=("Century", 12, "underline"))
 
     # Combobox for User list
     combo_user_list = ttk.Combobox(users_window, state="readonly")
@@ -359,10 +359,10 @@ def open_existing_users_window():
     label_view_results.pack(padx=20, pady=10, side=tk.TOP, fill="x")
     label_view_results.bind("<Button-1>",
                             lambda e: attempt_open_performance_metrics_window(combo_user_list.current()))  # Click event
-    label_view_coordinates_traversed.pack(padx=20, pady=10, side=tk.TOP, fill="x")
-    label_view_coordinates_traversed.bind("<Button-1>",
-                                          lambda e: attempt_open_coordinates_traversed_window(
-                                              combo_user_list.current()))  # Click event
+    # label_view_coordinates_traversed.pack(padx=20, pady=10, side=tk.TOP, fill="x")
+    # label_view_coordinates_traversed.bind("<Button-1>",
+    #                                       lambda e: attempt_open_coordinates_traversed_window(
+    #                                           combo_user_list.current()))  # Click event
     button_cancel.pack(pady=10, side=tk.BOTTOM)
     button_continue.pack(pady=10, side=tk.BOTTOM)
 
