@@ -16,6 +16,7 @@ import argparse
 import time
 import os
 import sys
+from datetime import timedelta
 from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
@@ -32,260 +33,24 @@ from utils.general import (LOGGER, check_file, check_img_size, check_imshow, che
 from utils.plots import Annotator, colors, save_one_box
 from utils.torch_utils import select_device, time_sync
 from timeit import default_timer
+import asyncio
 from tasks import path_tracking as pk
 from gui import app
+from gui import detect_marker
 
 # Custom variables
-no_of_task_repeats = 2  # How many times to repeat the task in a session
+no_of_task_repeats = app.repeat_task_value  # How many times to repeat the task in a session
 current_task_iteration = 0
+video_source = 0        # Indicate which source of video feed
+is_screen_recording_started = False
+pixel_cm_ratio = 0
+is_pixel_cm_val_retrieved = False
 
 FILE = Path(__file__).resolve()
 ROOT = FILE.parents[0]  # YOLOv5 root directory
 if str(ROOT) not in sys.path:
     sys.path.append(str(ROOT))  # add ROOT to PATH
 ROOT = Path(os.path.relpath(ROOT, Path.cwd()))  # relative
-
-# # Check if path tracking started
-# is_start_path_tracking = False
-#
-# # Check if timer started
-# is_timer_started = False
-#
-# # Check if task complete
-# is_task_complete = False
-#
-# # Check if tracker has started moving
-# is_tracker_start = False
-#
-# # Other Custom Variables
-# x, y, im0 = 0, 0, 0
-# # Custom variables
-# path_length = 0
-# tracker_path_threshold = 10  # 10
-# tracker_tooltip_threshold = 30  # 10
-# tracker_end_point_threshold = 300  # 3
-# poi = []
-# tool_tip = []
-# tracker = []
-# tooltip_dist = 0
-# last_tracker_position = []
-# points_traversed = []
-# distance_travelled = 0
-# elapsed_time = 0  # time taken to complete task
-# start_time = 0  # time task started
-# overall_deviation = 0  # Deviation from ideal path (in distance)
-#
-# # pts = []
-# pts = [(424, 305), (418, 329), (408, 346), (405, 326), (405, 300), (405, 274), (408, 246), (408, 222), (407, 196),
-#        (415, 163), (404, 136), (401, 109), (386, 86), (379, 64), (365, 87), (358, 108), (347, 131), (329, 156),
-#        (318, 186), (307, 208), (295, 231), (287, 256), (281, 284), (276, 311), (271, 340), (269, 315), (246, 299),
-#        (233, 272), (223, 250), (207, 228), (199, 202), (194, 169), (183, 142), (170, 115), (164, 92), (161, 63)]
-#
-# img_poly = np.zeros(shape=[480, 640, 3], dtype=np.uint8)
-#
-#
-# def draw_roi(event, x, y, flags, param):
-#     img2 = img_poly.copy()
-#
-#     if event == cv2.EVENT_LBUTTONDOWN:
-#         pts.append((x, y))
-#         # print(x,y)
-#     if event == cv2.EVENT_RBUTTONDOWN:
-#         pts.pop()
-#
-#     if event == cv2.EVENT_MBUTTONDOWN:
-#         mask = np.zeros(img_poly.shape, np.uint8)
-#         points = np.array(pts, np.int32)
-#         points = points.reshape((-1, 1, 2))
-#
-#         mask = cv2.polylines(mask, [points], True, (255, 255, 255), 2)
-#         mask2 = cv2.fillPoly(mask.copy(), [points], (255, 255, 255))
-#         mask3 = cv2.fillPoly(mask.copy(), [points], (0, 255, 0))
-#
-#         show_image = cv2.addWeighted(src1=img_poly, alpha=0.8, src2=mask3, beta=0.2, gamma=0)
-#
-#         cv2.imshow("mask", mask2)
-#         cv2.imshow("show_img", show_image)
-#
-#         ROI = cv2.bitwise_and(mask2, img_poly)
-#         cv2.imshow("ROI", ROI)
-#         cv2.waitKey(0)
-#
-#     if len(pts) > 0:
-#         cv2.circle(img2, pts[-1], 3, (0, 0, 255), -1)
-#
-#     if len(pts) > 1:
-#
-#         for i in range(len(pts) - 1):
-#             cv2.circle(img2, pts[i], 5, (0, 0, 255), -1)
-#             cv2.line(img=img2, pt1=pts[i], pt2=pts[i + 1], color=(255, 0, 0), thickness=2)
-#
-#     cv2.imshow('image', img2)
-#     return pts, cv2.imshow('image', img2)
-#
-#
-# def draw_tracker(im, point_x, point_y, original_width=1920, original_height=1080):
-#     # Draw Tracker circle
-#     cv2.circle(im, (point_x * original_width // 640, point_y * original_height // 480), 7, (0, 0, 255), 7)
-#     # pts[0][0] * w // 640, pts[0][1] * h // 480
-#     update_variables(index=1, t_value=(point_x, point_y))
-#
-#
-# def draw_tool_tip(im, point_x, point_y, original_width=1920, original_height=1080):
-#     # Draw Tracker circle
-#     cv2.circle(im, (point_x * original_width // 640, point_y * original_height // 480), 3, [0, 255, 255], 5)
-#     # int((x / w) * 640), int((y / h) * 480)
-#     update_variables(index=0, t_value=(point_x // original_width * 640, point_y // original_height * 480))
-#
-#
-# # Update My Tracking Variables
-# def update_variables(index, t_value):
-#     global tool_tip, tracker
-#     if index == 0:
-#         tool_tip = t_value
-#     elif index == 1:
-#         tracker = t_value
-#     return t_value
-#
-#
-# # Function to determine the on_line status of tracker
-# def is_tracker_on_line(tracker):
-#     a, temp = 0, 0
-#     for n in range(len(pts)):
-#         if n < len(pts) - 1:
-#             coord_x1, coord_y1 = pts[n]  # Current point
-#             coord_x2, coord_y2 = pts[n + 1]  # Next point
-#             dist = abs((coord_y2 - coord_y1) * tracker[0] - (coord_x2 - coord_x1) * tracker[
-#                 1] + coord_x2 * coord_y1 - coord_y2 * coord_x1) / math.sqrt(
-#                 (coord_y2 - coord_y1) ** 2 + (coord_x2 - coord_x1) ** 2)
-#             if n == 0:
-#                 a = dist
-#             else:
-#                 temp = dist
-#                 if temp < a:
-#                     a = temp
-#             print("current distance = ", dist)
-#     return a
-#
-#
-# # Function to check the shortest distance between tracker and drawn path
-# def check_tracker_distance(m_tracker):
-#     try:
-#         trk_x = m_tracker[0]
-#         trk_y = m_tracker[1]
-#         short, temp = 0, 0
-#         for n in range(len(pts)):
-#             if n < len(pts) - 1:
-#                 x1, y1 = pts[n]
-#                 x2, y2 = pts[n + 1]
-#                 a = trk_x - x1
-#                 b = trk_y - y1
-#                 c = x2 - x1
-#                 d = y2 - y1
-#
-#                 dot = a * c + b * d
-#                 len_sq = c * c + d * d
-#                 param = -1
-#
-#                 if len_sq != 0:  # in case of 0 length line
-#                     param = dot / len_sq
-#
-#                 if param < 0:
-#                     xx = x1
-#                     yy = y1
-#                 elif param > 1:
-#                     xx = x2
-#                     yy = y2
-#                 else:
-#                     xx = x1 + param * c
-#                     yy = y1 + param * d
-#
-#                 dx = trk_x - xx
-#                 dy = trk_y - yy
-#                 dist = math.sqrt(dx * dx + dy * dy)
-#                 # Store the shortest distance
-#                 if n < 1:
-#                     short = dist
-#                 else:
-#                     temp = dist
-#                     if temp < short:
-#                         short = temp  # shortest distance
-#                 print("distance at ", pts[n], " and ", pts[n + 1], "===:: ", dist, " .shortest dist is ", short)
-#         return short
-#     except:
-#         print("ERROR in checking tracker distance to path")
-#
-#
-# # Function to generate total length of drawn path
-# def get_path_length():
-#     length = 0
-#     try:
-#         for n in range(len(pts)):
-#             if n < len(pts) - 1:
-#                 length += distance.euclidean(pts[n], pts[n + 1])
-#         return length
-#     except:
-#         print("invalid path length")
-#
-#
-# # Function to start timing performance
-# def start_timer():
-#     global is_timer_started, start_time
-#     if not is_timer_started:
-#         # start_time = time.time()
-#         start_time = default_timer()  # default_timer is independent of unfortunate system time's changes during usage
-#         is_timer_started = True
-#         return start_time
-#
-#
-# # Function to stop performance timer
-# def stop_timer():
-#     global is_timer_started, elapsed_time
-#     if is_timer_started:
-#         # elapsed_time = int(time.time() - start_time)
-#         elapsed_time = default_timer() - start_time
-#         is_timer_started = False
-#         print(f"Time taken to complete task => ({elapsed_time:.2f}s)")
-#         # LOGGER.info(f"({elapsed_time:.2f}s)")
-#         # LOGGER.info(f"Time taken to complete task => ({temp_end:.2f}s)")
-#         return elapsed_time
-#
-#
-# # Function to end program by changing some bool values
-# def end_program():
-#     global is_task_complete, is_start_path_tracking, is_tracker_start
-#     is_task_complete = True
-#     is_start_path_tracking = False
-#     is_tracker_start = False
-#     stop_timer()  # Record time taken to complete task
-#     print("Total distance deviated from ideal path => ", overall_deviation)
-#
-#
-# cv2.namedWindow('image')
-# cv2.setMouseCallback('image', draw_roi)
-#
-# print(
-#     "[INFO] Click the left button: select the point, click the right button: delete the last selected point, click the middle button: confirm the ROI area")
-# print("[INFO] Press 'S' to confirm the selected area and save")
-# print("[INFO] Press 'Q' to stop tool tracking and calculate performance")
-# print("[INFO]  ESC exit")
-#
-# while True:
-#     key = cv2.waitKey(1) & 0xFF
-#     if key == 27:
-#         break
-#     if key == ord("s"):
-#         saved_data = {
-#             "ROI": pts
-#         }
-#         path_length = get_path_length()  # Calculate and retrieve total path length
-#
-#         print("The ROI coordinates have been saved locally..", saved_data, " \nTOTAL PATH LENGTH IS ", path_length)
-#         break
-# cv2.destroyAllWindows()
-
-
-# print(pts)
 
 
 # ********************** BEGIN PROGRAM *************************
@@ -322,8 +87,11 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
         ):
     # Set Custom variables to Global global is_start_path_tracking, im0, is_task_complete, distance_travelled,
     # overall_deviation, x, y, poi, is_tracker_start, tooltip_dist, last_tracker_position, points_traversed
+    global video_source, pixel_cm_ratio, is_pixel_cm_val_retrieved
 
     source = str(source)
+    video_source = source       # assign source of video feed to global custom variable
+    # print(f"VIDEO SOURCE IS ......... {video_source}")
     save_img = not nosave and not source.endswith('.txt')  # save inference images
     is_file = Path(source).suffix[1:] in (IMG_FORMATS + VID_FORMATS)
     is_url = source.lower().startswith(('rtsp://', 'rtmp://', 'http://', 'https://'))
@@ -346,7 +114,7 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
     if pt:
         model.model.half() if half else model.model.float()
 
-    # Dataloader
+    # Data-loader
     if webcam:
         view_img = check_imshow()
         cudnn.benchmark = True  # set True to speed up constant image size inference
@@ -362,8 +130,23 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
         model(torch.zeros(1, 3, *imgsz).to(device).type_as(next(model.model.parameters())))  # warmup
     dt, seen = [0.0, 0.0, 0.0], 0
 
+    # Create an async video writer func to call a method from another file
+    async def run_async_video_writer():
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(app.write_to_video(video_source, './videos/recorded_tasks'))
+        loop.close()
+        # async_func = loop.create_task(app.write_to_video(video_source, './videos/recorded_tasks'))
+        # app.write_to_video(video_source, './videos/recorded_tasks')
+
+    # --------------------- Check Pixel-To-CM Ratio ----------------------
+    if not is_pixel_cm_val_retrieved:   # run function once
+        pixel_cm_ratio = detect_marker.detect_marker_in_background(
+            "gui/detect_red3.MOV")  # default input=source as the same for main task
+        is_pixel_cm_val_retrieved = True
+        print("Pixel val retrieved ")
+
     # Set Custom variables to Global
-    # global x, y, poi, is_tracker_start, tooltip_dist, last_tracker_position, points_traversed
+    global is_screen_recording_started
     # ****************************************************************************************
     # *** MAIN PROGRAM LOOP ***
     for path, im, im0s, vid_cap, s in dataset:
@@ -375,6 +158,8 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
             im = im[None]  # expand for batch dim
         t2 = time_sync()
         dt[0] += t2 - t1
+
+        # SOme random loop count test. Not necessary for program running
 
         # Inference
         visualize = increment_path(save_dir / Path(path).stem, mkdir=True) if visualize else False
@@ -388,6 +173,9 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
 
         # Second-stage classifier (optional)
         # pred = utils.general.apply_classifier(pred, classifier_model, im, im0s)
+
+        # Start time check for Loop
+        start = default_timer()
 
         # Process predictions
         for i, det in enumerate(pred):  # per image
@@ -407,22 +195,18 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
             annotator = Annotator(im0, line_width=line_thickness, example=str(names))
             h, w, _ = im0.shape
 
+            # ************************************ PATH TRACKING TASK HERE *********************************************
             # ************** Write Current Task Iteration No. text on Screen **************
-            font = cv2.FONT_HERSHEY_SIMPLEX
-            # inserting text on video frame
-            text_y_pos = int(0.03 * h)  # defining a y position for our text
-            cv2.putText(im0, 'Current task ' + str(current_task_iteration + 1) + ' of ' + str(no_of_task_repeats),
-                        (0, text_y_pos), font, 1, (255, 255, 255, 0.5),
-                        3, cv2.LINE_4)
+            pk.display_current_task_iteration_no(im0, h, current_task_iteration, no_of_task_repeats)
             # ------------------------------------------------
+
+            # ----------------------- Calculate Frames Per Sec (FPS) of video file ----------------------------
+            app.get_frames_per_sec(video_source)
+
 
             if not pk.is_start_path_tracking:
                 # ************** Write 'Start HERE' text on Screen **************
-                font = cv2.FONT_HERSHEY_SIMPLEX
-                # inserting text on video frame
-                cv2.putText(im0, 'Start HERE', ((pk.pts[0][0] * w // 640), pk.pts[0][1] * h // 480), font, 1,
-                            (255, 255, 255),
-                            2, cv2.LINE_4)
+                pk.display_start_here_text(im0, (pk.pts[0][0]* w // 640), (pk.pts[0][1]* h // 480))
                 # ------------------------------------------------
 
             if len(pk.pts) > 1:
@@ -455,9 +239,9 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
                     #         f.write(('%g ' * len(line)).rstrip() % line + '\n')
 
                     if save_img or save_crop or view_img:  # Add bbox to image
-                        c = int(cls)  # integer class
-                        label = None if hide_labels else (names[c] if hide_conf else f'{names[c]} {conf:.2f}')
-                        annotator.box_label(xyxy, label, color=colors(c, True))
+                        # c = int(cls)  # integer class
+                        # label = None if hide_labels else (names[c] if hide_conf else f'{names[c]} {conf:.2f}')
+                        # annotator.box_label(xyxy, label, color=colors(c, True))
 
                         # xyxy = torch.IntTensor(xyxy)
 
@@ -481,26 +265,28 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
 
                         # Draw Tracker at start position if not started
                         if not pk.is_tracker_start:
-                            # last_tracker_position = tracker  # Store last tracker coordinates
                             # Draw tracker at Initial Start Position
                             pk.draw_tracker(im0, pk.pts[0][0], pk.pts[0][1], original_width=w, original_height=h)
-                            # draw_tracker(im0, pts[0][0] * w // 640, pts[0][1] * h // 480)
-
-                            # print("pts[0][0]====", pk.pts[0][0], "w====", w)
-                            # print("pts[0][1]====", pk.pts[0][1], "h====", h)
 
                             pk.is_tracker_start = True  # Tracker drawn initially
-
                         else:
                             if pk.check_tracker_distance(pk.tracker) < pk.tracker_path_threshold and distance.euclidean(
                                     pk.tracker,
-                                    pk.tool_tip) < pk.tracker_tooltip_threshold:  # Move tracker if close to path and tooltip by some val
+                                    pk.tool_tip) < pk.tracker_tooltip_threshold:  # Move tracker if close to path & tooltip by some val
                                 # ********************************************************************
                                 # Start tracking performance of path following
                                 if not pk.is_start_path_tracking:
                                     # Start Timer
                                     pk.start_timer()
+                                    # Start Recording Screen
+                                    if not is_screen_recording_started:
+                                        # asyncio.run(run_async_video_writer())    # run asynchronously
+                                        is_screen_recording_started = True
                                     pk.is_start_path_tracking = True
+
+                                # Record all coordinates traversed while path tracking and timer started
+                                if pk.is_start_path_tracking:
+                                    pk.all_coordinates_recorded.append(pk.tracker)
 
                                 pk.last_tracker_position = pk.tracker  # Store last tracker coordinates while on path
                                 # Store tracker movement coordinates
@@ -521,30 +307,29 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
                                     # End Program and Display Results
                                     if distance.euclidean(pk.tracker, pk.pts[-1]) < pk.tracker_end_point_threshold:
                                         print("Tracker reached end of path")
-                                        pk.end_program()  # End Program
+                                        print("Pixel cm value in Detect file is ", pixel_cm_ratio)
+                                        pk.end_program(pixel_cm_ratio)  # ******************** End Task Training Program ************ 58.5872431945801
+                                        # ...and dispatch pixel_cm_ratio val for storage
+                                        # ********************* SAVE results to file if all iterations complete *******
+                                        if no_of_task_repeats - current_task_iteration == 1:
+                                            pk.save_results()
+                                            print('All Iteration Results saved to file')
                                         print('Program ended normally')
+                                        is_screen_recording_started = False     # Screen recording ended
                                         return
-                            else:
+                            else:   # if task started BUT DEVIATED
                                 # When tracker deviates from path no matter where tooltip is
-                                if pk.check_tracker_distance(pk.tracker) > tracker_path_threshold:
+                                if pk.check_tracker_distance(pk.tracker) >= pk.tracker_path_threshold:
                                     print("DEVIATION!!!!!!!!")
-                                    # Store distances of deviation from ideal path
-                                    # Introduce a temp variable to check whether new deviated point has changed before adding
-                                    pk.overall_deviation += distance.euclidean(pk.tracker, pk.last_tracker_position)
-                                    try:
-                                        # Press a key to bring tracker to previous position on path
-                                        if cv2.waitKey(1) & 0xFF == ord('b'):  # press 'b' key
-                                            pk.draw_tracker(im0, pk.last_tracker_position[0], pk.last_tracker_position[1],
-                                                            original_width=w, original_height=h)
-                                            print("KEY 'b' PRESSED! TRACKER SUPPOSED TO RESET TO PREV LOC ON PATH")
-                                            break
-                                        else:
-                                            # Draw motionless tracker if far from path  # This code was prev above 'try'
-                                            print("Tracker MOTIONLESS")
-                                            pk.draw_tracker(im0, pk.tracker[0], pk.tracker[1], original_width=w,
-                                                            original_height=h)
-                                    except:
-                                        print('Error. Tracker Reset Key pressed at the wrong time.')
+                                    # FREEZE tracker while off-path
+                                    print("Tracker MOTIONLESS")
+                                    pk.draw_tracker(im0, pk.tracker[0], pk.tracker[1], original_width=w, original_height=h)
+                                    # Reset Tracker to last optimal point on ideal path
+                                    if not pk.is_tracker_resetting:
+                                        # pk.write_some_text(im0, w, h, "You moved away from path. Please wait...")
+                                        pk.center_text(im0, "You moved away from path. Please wait...")
+                                        pk.reset_tracker_on_timer(2, im0)  # Wait for 2 secs before execution
+                                    # ***** Tracker reset complete *****
 
                         # print("poi (collected): ", poi)
                         print("Current tracker coordinates", pk.tracker, " tooltip ", pk.tool_tip)
@@ -555,19 +340,15 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
                         pk.draw_tool_tip(im0, pk.tool_tip[0], pk.tool_tip[1], original_width=w,
                                          original_height=h)  # tooltip circle
 
-                        # Exit program if Window closed cv2.getWindowProperty('window-name', 0) >= 0:
-                        # if cv2.getWindowProperty(str(p), cv2.WND_PROP_VISIBLE) < 1:
-                        #     print("Window closed")
-                        #     sys.exit()
-
                         if save_crop:
                             save_one_box(xyxy, imc, file=save_dir / 'crops' / names[c] / f'{p.stem}.jpg', BGR=True)
+        # End time check for loop
+        end = (default_timer() - start)
+        LOGGER.info(f"!!TIME - Predictions Loop ::==== {timedelta(seconds=end)}")
 
         # Check the On_line Status of Tracker
         print("shortest distance ", pk.check_tracker_distance(pk.tracker))
-        # Check the distance between tooltip and tracker
-        # tooltip_dist = distance.euclidean(tracker, tool_tip)
-        # print("Tooltip distance:::::::: ", tooltip_dist)
+
         # Print time (inference-only)
         LOGGER.info(f'{s}Done. ({t3 - t2:.3f}s)')
 
@@ -576,9 +357,9 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
             im0 = annotator.result()
         except:
             pass
-        # if view_img:
+        # if view_img:        # Worked well while commented out. Uncommneted it out for just testing
         im0 = cv2.resize(im0, (640, 480))
-        cv2.imshow(str(p), im0)
+        cv2.imshow(str(p), im0)     # display main task training window
 
         # Start Measure performance
         if cv2.waitKey(1) & 0xFF == 32:  # if space pressed
@@ -590,8 +371,11 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
         # end_program()
         if cv2.waitKey(1) & 0xFF == ord('q'):
             # pk.stop_timer()
-            pk.end_program()
+            pk.end_program(pixel_cm_ratio)
             break
+        if cv2.getWindowProperty(str(p), cv2.WND_PROP_VISIBLE) < 1:
+            print("Window closed from x button")
+            sys.exit()
 
     # *******************************************************************
     # Calculate TOTAL DISTANCE TRAVELLED
@@ -600,40 +384,13 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
             pk.distance_travelled += distance.euclidean(pk.points_traversed[n], pk.points_traversed[n + 1])
 
     print("TOTAL DISTANCE TRAVERSED = ", pk.distance_travelled)
+    print("ALL COORDINATES RECORDED = ", pk.all_coordinates_recorded)
 
     # Get Performance Time
     if pk.is_timer_started:  # if timer still running for some reason
         print("Timer was still running")
-        pk.end_program()
+        pk.end_program(pixel_cm_ratio)
     print("Time taken to complete task ==> ", pk.elapsed_time, "s")
-
-    # xs =[]
-    # ys = []
-    # for p in range(len(poi)):
-    #     xs.append(abs(poi[p][0]))
-    #     ys.append(abs(poi[p][1]-480))
-    # # print(xs)
-    # # print(ys)
-    # plt.plot(xs, ys, marker='o', color='green', markerfacecolor='red', markersize=2)
-    # # plt.plot(x[0], y[0], 'ro', color="green", markersize=6)
-    # # plt.plot(x[-1], y[-1], 'ro', color="red", markersize=6)
-    #
-    # plt.ylim(0, 480)
-    # plt.xlim(0, 640)
-    # plt.title('Tool Tracking!')
-    # # fig, ax = plt.subplots(1)
-    # # for p in patches:
-    # #     ax.add_patch(p)
-    # plt.savefig('tracking_graph.png')
-    # Print results
-    # t = tuple(x / seen * 1E3 for x in dt)  # speeds per image
-    # LOGGER.info(f'Speed: %.1fms pre-process, %.1fms inference, %.1fms NMS per image at shape {(1, 3, *imgsz)}' % t)
-    # if save_txt or save_img:
-    #     s = f"\n{len(list(save_dir.glob('labels/*.txt')))} labels saved to {save_dir / 'labels'}" if save_txt else ''
-    #     LOGGER.info(f"Results saved to {colorstr('bold', save_dir)}{s}")
-    # if update:
-    #     strip_optimizer(weights)  # update model (to fix SourceChangeWarning)
-
 
 def parse_opt():
     parser = argparse.ArgumentParser()
