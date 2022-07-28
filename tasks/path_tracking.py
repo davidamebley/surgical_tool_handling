@@ -155,13 +155,13 @@ def update_variables(index, t_value):
 
 
 # Function to determine the on_line status of tracker
-def is_tracker_on_line(tracker):
+def is_tracker_on_line(m_tracker):
     a, temp = 0, 0
     for n in range(len(pts)):
         if n < len(pts) - 1:
             coord_x1, coord_y1 = pts[n]  # Current point
             coord_x2, coord_y2 = pts[n + 1]  # Next point
-            dist = abs((coord_y2 - coord_y1) * tracker[0] - (coord_x2 - coord_x1) * tracker[
+            dist = abs((coord_y2 - coord_y1) * m_tracker[0] - (coord_x2 - coord_x1) * m_tracker[
                 1] + coord_x2 * coord_y1 - coord_y2 * coord_x1) / math.sqrt(
                 (coord_y2 - coord_y1) ** 2 + (coord_x2 - coord_x1) ** 2)
             if n == 0:
@@ -435,25 +435,45 @@ def get_path_coordinates_csv():
         raise FileNotFoundError("error ", e)
 
 
+# Backup to function to reset tracker to ideal path position
+# def reset_tracker(frame):
+#     global overall_deviation, is_tracker_resetting
+#     # Store distances of deviation from ideal path
+#     overall_deviation += distance.euclidean(tracker, last_tracker_position)
+#     # try:
+#     # Bring tracker to ideal previous position on path
+#     draw_tracker(frame, last_tracker_position[0], last_tracker_position[1], original_width=1920, original_height=1080)
+#     is_tracker_resetting = False
+#     print("Tracker reset successfully")
+
+
 # Function to reset tracker to ideal path position
 def reset_tracker(frame):
-    global overall_deviation, is_tracker_resetting
-    # Store distances of deviation from ideal path
-    overall_deviation += distance.euclidean(tracker, last_tracker_position)
-    # try:
-    # Bring tracker to ideal previous position on path
-    draw_tracker(frame, last_tracker_position[0], last_tracker_position[1], original_width=1920, original_height=1080)
+    global is_tracker_resetting
+    # Reset tracker to ideal previous position on path
     is_tracker_resetting = False
+    draw_tracker(frame, last_tracker_position[0], last_tracker_position[1], original_width=1920, original_height=1080)
     print("Tracker reset successfully")
 
 
-# Function to run a timed function
+# Back up to function to run a timed function
+# def reset_tracker_on_timer(secs, tracker_frame):
+#     global is_tracker_resetting
+#     timer_start_time = threading.Timer(secs, lambda: reset_tracker(tracker_frame))      # reset tracker after some secs
+#     timer_start_time.start()
+#     is_tracker_resetting = True
+#     print("Tracker initiating reset...")
+
 def reset_tracker_on_timer(secs, tracker_frame):
-    global is_tracker_resetting
-    timer_start_time = threading.Timer(secs, lambda: reset_tracker(tracker_frame))      # reset tracker after some secs
-    timer_start_time.start()
+    global is_tracker_resetting, overall_deviation
     is_tracker_resetting = True
-    print("Tracker initiating reset...")
+    print("Tracker resetting...")
+    # draw_tracker(tracker_frame, tracker[0], tracker[1])         # FREEZE tracker
+    # Store distances of deviation from ideal path
+    overall_deviation += distance.euclidean(tracker, last_tracker_position)
+    print("Deviation distance stored")
+    timer_start_time = threading.Timer(secs, lambda: reset_tracker(tracker_frame))      # reset tracker after countdown
+    timer_start_time.start()        # start countdown timer
 
 
 # Function to Write Current Task Iteration No. text on Screen
