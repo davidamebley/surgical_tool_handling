@@ -141,7 +141,7 @@ def run(weights=ROOT / 'yolov5s.pt',  # model.pt path(s)
     # --------------------- Check Pixel-To-CM Ratio ----------------------`
     if not is_pixel_cm_val_retrieved:   # run function once
         pixel_cm_ratio = detect_marker.detect_marker_in_background(
-            0)  # default input=source; as the same for main task ("gui/detect_red3.MOV")
+            "gui/detect_red3.MOV")  # default input=source; as the same for main task ("gui/detect_red3.MOV")
         is_pixel_cm_val_retrieved = True
         print("Pixel val retrieved ")
 
@@ -411,8 +411,8 @@ def parse_opt():
     parser = argparse.ArgumentParser()
     # parser.add_argument('--weights', nargs='+', type=str, default=ROOT / 'weights/david_best.pt', help='model path(s)')
     parser.add_argument('--weights', nargs='+', type=str, default=ROOT / 'weights/best.pt', help='model path(s)')
-    # parser.add_argument('--source', type=str, default=ROOT / 'extracted.mp4', help='file/dir/URL/glob, 0 for webcam')
-    parser.add_argument('--source', type=str, default=0, help='file/dir/URL/glob, 0 for webcam')
+    parser.add_argument('--source', type=str, default=ROOT / 'extracted.mp4', help='file/dir/URL/glob, 0 for webcam')
+    # parser.add_argument('--source', type=str, default=0, help='file/dir/URL/glob, 0 for webcam')
     parser.add_argument('--imgsz', '--img', '--img-size', nargs='+', type=int, default=[640], help='inference size h,w')
     parser.add_argument('--conf-thres', type=float, default=0.25, help='confidence threshold')
     parser.add_argument('--iou-thres', type=float, default=0.45, help='NMS IoU threshold')
