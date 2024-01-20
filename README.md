@@ -1,12 +1,10 @@
-# Augmented Reality for Surgical Handling Skills Training
+# SurgiAR: Augmented Reality for Surgical Training
 
 ##
+"SurgiAR" is an augmented reality application to improve surgical instrument handling skills for medical trainees. Developed using Python, it incorporates Computer Vision and YOLOv5 object detection to provide a dynamic training experience. The application includes a Tkinter-based user interface and integrates YOLOv5 with OpenCV for accurate tool tracking, showcasing a practical blend of problem-solving, machine learning, and software design. 
 
-The main goal of this application is to implement methods that would combine AR technology with surgical skills training. 
-
-The Augmented Reality Surgical skills training application is designed to be used at Coglab by people from the medical domain who need to improve their skills 
-in the use and handling of microsurgical instruments such as the micro-scissors. 
-The application is equipped with a single, pre-designed task which the user chooses and starts training immediately using the surgical instruments it was designed with. 
+## Motivation
+The project was developed to offer a safer alternative for surgical training, allowing trainees to practice instrument handling without the risks associated with live patient operations.
 
 ## Instruments
 The instruments used for the training are:
@@ -15,7 +13,7 @@ The instruments used for the training are:
 
 ## Training Tasks
 The main training task available in the application is the Path tracking task.
-It allows the user to move an object along a path on the computer screen using any of the available surgical instruments.
+It allows the user to move an object along a path on the computer screen using specific surgical instruments.
 
 ## Software Tools
 - Python
