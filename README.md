@@ -1,6 +1,5 @@
 # SurgiAR: Augmented Reality for Surgical Training
 
-##
 "SurgiAR" is an augmented reality application to improve surgical instrument handling skills for medical trainees. Developed using Python, it incorporates Computer Vision and YOLOv5 object detection to provide a dynamic training experience. The application includes a Tkinter-based user interface and integrates YOLOv5 with OpenCV for accurate tool tracking, showcasing a practical blend of problem-solving, machine learning, and software design. 
 
 ## Motivation
